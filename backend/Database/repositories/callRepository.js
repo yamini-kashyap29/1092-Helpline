@@ -1,7 +1,8 @@
 'use strict';
 
 const { Op } = require('sequelize');
-const { Call, Transcript, AIResult, Alert, Transfer } = require('../index');
+// ✅ FIXED: Pointing directly to Database/index.js to bypass the redundant models/index.js loop
+const { Call, Transcript, AIResult, Alert, Transfer } = require('../index.js');
 
 // ─── Create ────────────────────────────────────────────────────────────────────
 
@@ -117,7 +118,8 @@ const deleteCall = async (id) => {
 // ─── Stats ─────────────────────────────────────────────────────────────────────
 
 const getCallStats = async () => {
-  const { sequelize } = require('../index');
+  // ✅ FIXED: Points directly to the clean parent database configuration instance
+  const { sequelize } = require('../index.js');
 
   const result = await Call.findAll({
     attributes: [

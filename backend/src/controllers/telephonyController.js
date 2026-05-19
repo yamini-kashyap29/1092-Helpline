@@ -1,3 +1,19 @@
+const {
+  shouldTransfer,
+} = require('../services/severityService');
+
+const {
+  findAvailableOfficer,
+} = require('../services/officerService');
+
+const {
+  createAlert,
+} = require('../services/alertService');
+
+const {
+  transferCall,
+} = require('../services/transferService');
+
 const telephonyService = require('../services/telephonyService');
 
 const incomingCall = async (req, res) => {
@@ -35,19 +51,87 @@ const callStatus = async (req, res) => {
   }
 };
 
+
 const forwardAgent = async (req, res) => {
+
   try {
+
     const { callSid, severity } = req.body;
+
     if (!callSid || !severity) {
-      return res.status(400).json({ success: false, error: 'callSid and severity are required' });
+
+      return res.status(400).json({
+        success: false,
+        error:
+          'callSid and severity are required',
+      });
     }
-    const result = await telephonyService.forwardToAgent(callSid, severity);
-    res.json({ success: true, message: 'Call forwarded to agent', data: result });
+
+    // check severity
+
+    const shouldForward =
+      shouldTransfer(severity);
+
+    // LOW severity
+
+    if (!shouldForward) {
+
+      return res.json({
+        success: true,
+        message:
+          'LOW severity. No transfer needed.',
+      });
+    }
+
+    // find officer
+
+    const officer =
+      await findAvailableOfficer();
+
+    console.log(
+      '\n👮 Officer Assigned:',
+      officer.name
+    );
+
+    // create alert
+
+    await createAlert({
+      severity,
+      summary:
+        'Emergency case requires immediate attention',
+    });
+
+    // transfer call
+
+    const result =
+      await transferCall({
+        callSid,
+        officer,
+        reason:
+          'AI detected HIGH/CRITICAL emergency',
+      });
+
+    return res.json({
+      success: true,
+      message:
+        'Call forwarded successfully',
+      data: result,
+    });
+
   } catch (error) {
-    console.error('❌ forwardAgent error:', error.message);
-    res.status(500).json({ success: false, error: error.message });
+
+    console.error(
+      '❌ forwardAgent error:',
+      error.message
+    );
+
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
   }
 };
+
 
 const health = (req, res) => {
   res.json({ success: true, message: 'Telephony service is running', timestamp: new Date().toISOString() });

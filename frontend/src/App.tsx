@@ -16,11 +16,18 @@ const Notifications = lazy(() => import("./pages/Notifications"));
 const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
+// Enforces secure route restrictions
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const token = getToken();
   if (!token) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
+
+// Redirects logged-in agents away from generic public index views
+const RootRouteHandler = () => {
+  const token = getToken();
+  return token ? <Navigate to="/dashboard" replace /> : <Index />;
+};
 
 const App = () => {
   const setAgent = useAgentStore((s) => s.setAgent);
@@ -50,10 +57,12 @@ const App = () => {
           v7_relativeSplatPath: true,
         }}
       >
-        <Suspense fallback={<LoadingSpinner text="Loading page..." />}>
+        <Suspense fallback={<LoadingSpinner text="Loading system modules..." />}>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
+            
+            {/* Authenticated Dashboard Shell Layout */}
             <Route
               element={
                 <AuthGuard>
@@ -68,6 +77,7 @@ const App = () => {
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

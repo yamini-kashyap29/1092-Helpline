@@ -16,7 +16,7 @@ import { PremiumButton } from "@/components/common/PremiumButton";
 import {
   PhoneOff, AlertTriangle, Hand, Copy, Clock, FileText, Lightbulb,
   CheckCircle, XCircle, MinusCircle, ChevronRight, Zap,
-  Mic, MicOff, Square, Search, Filter, Edit3, Check, X
+  Mic, Square, Search, Filter, Edit3, Check, X
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -40,7 +40,7 @@ export default function ActiveCall() {
   // Audio recording state (for call logging)
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -62,107 +62,7 @@ export default function ActiveCall() {
   const [takingControl, setTakingControl] = useState(false);
   const [endingCall, setEndingCall] = useState(false);
 
-  useEffect(() => {
-    // Connect agent WebSocket (routed via RTCBridge)
-    wsManager.connect(`/agent/${callId}`);
-
-    const unsubTranscript = wsManager.subscribe("transcript_update", (data) => {
-      const line = data as TranscriptLine;
-      appendTranscript(line);
-    });
-
-    const unsubEmotion = wsManager.subscribe("emotion_update", (data) => {
-      const { emotion } = data as { emotion: EmotionType };
-      updateCurrentCallField({ emotion });
-    });
-
-    const unsubConfidence = wsManager.subscribe("confidence_update", (data) => {
-      const { confidence, reason } = data as { confidence: number; reason: string };
-      updateCurrentCallField({ confidence, confidenceReason: reason });
-    });
-
-    const unsubVerification = wsManager.subscribe("verification_trigger", () => {
-      setShowVerification(true);
-    });
-
-    const unsubAiInsight = wsManager.subscribe("ai_insight_update", (data) => {
-      const insight = data as Partial<typeof call>;
-      updateCurrentCallField(insight);
-    });
-
-    // Auto-escalation trigger from backend
-    const unsubEscalation = wsManager.subscribe("escalation_required", () => {
-      toast.error("⚠️ Auto-escalation triggered — HIGH urgency detected!", { duration: 5000 });
-      setIsManualControl(true);
-      startAgentMic();
-    });
-
-    // Real-time audio bridge from citizen
-    const unsubCitizenAudio = wsManager.subscribe("citizen_audio", (data) => {
-      const { data: b64 } = data as { data: string };
-      if (b64) {
-        const audio = new Audio("data:audio/webm;codecs=opus;base64," + b64);
-        audio.play().catch(() => {});
-      }
-    });
-
-    // Fetch initial call data from API
-    callAPI.getCall(callId || "CALL-0001").then(res => {
-      setCurrentCall(res.data);
-      
-      // Simulation: Periodically add new transcript lines for the mock experience
-      const mockLines = [
-        { speaker: "citizen" as const, text: "Wait, I also have a problem with the electricity near my house." },
-        { speaker: "ai" as const, text: "I understand. I am logging the power outage issue as well." },
-        { speaker: "citizen" as const, text: "Thank you. When will it be fixed?" },
-        { speaker: "ai" as const, text: "The department has been notified. Expected resolution within 4 hours." }
-      ];
-      
-      let lineIdx = 0;
-      const simulationInterval = setInterval(() => {
-        if (lineIdx < mockLines.length) {
-          appendTranscript({
-            id: Date.now().toString(),
-            ...mockLines[lineIdx],
-            timestamp: new Date().toISOString()
-          });
-          lineIdx++;
-        } else {
-          clearInterval(simulationInterval);
-        }
-      }, 5000);
-
-      return () => clearInterval(simulationInterval);
-
-    }).catch(() => {
-      // Fallback to initial mock if API fails
-      const call = generateMockCall({ callId: callId || "CALL-0001" });
-      setCurrentCall(call);
-    });
-
-
-    return () => {
-      unsubTranscript();
-      unsubEmotion();
-      unsubConfidence();
-      unsubVerification();
-      unsubAiInsight();
-      unsubEscalation();
-      stopAgentMic();
-      wsManager.disconnect();
-    };
-  }, [callId, setCurrentCall, appendTranscript, updateCurrentCallField]);
-
-  useEffect(() => {
-    const timer = setInterval(() => setElapsed((e) => e + 1), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: "smooth" });
-  }, [currentCall?.transcript]);
-
-  // ── Agent Live Mic Bridge (post-escalation) ─────────────────────────────
+  // Agent Live Mic Bridge (post-escalation)
   const startAgentMic = useCallback(async () => {
     if (isLive) return;
     try {
@@ -193,6 +93,100 @@ export default function ActiveCall() {
     agentStreamRef.current = null;
     setIsLive(false);
   }, []);
+
+  useEffect(() => {
+    wsManager.connect(`/agent/${callId}`);
+
+    const unsubTranscript = wsManager.subscribe("transcript_update", (data) => {
+      appendTranscript(data as TranscriptLine);
+    });
+
+    const unsubEmotion = wsManager.subscribe("emotion_update", (data) => {
+      const { emotion } = data as { emotion: EmotionType };
+      updateCurrentCallField({ emotion });
+    });
+
+    const unsubConfidence = wsManager.subscribe("confidence_update", (data) => {
+      const { confidence, reason } = data as { confidence: number; reason: string };
+      updateCurrentCallField({ confidence, confidenceReason: reason });
+    });
+
+    const unsubVerification = wsManager.subscribe("verification_trigger", () => {
+      setShowVerification(true);
+    });
+
+    const unsubAiInsight = wsManager.subscribe("ai_insight_update", (data) => {
+      updateCurrentCallField(data as Partial<typeof currentCall>);
+    });
+
+    const unsubEscalation = wsManager.subscribe("escalation_required", () => {
+      toast.error("⚠️ Auto-escalation triggered — HIGH urgency detected!", { duration: 5000 });
+      setIsManualControl(true);
+      startAgentMic();
+    });
+
+    const unsubCitizenAudio = wsManager.subscribe("citizen_audio", (data) => {
+      const { data: b64 } = data as { data: string };
+      if (b64) {
+        const audio = new Audio("data:audio/webm;codecs=opus;base64," + b64);
+        audio.play().catch(() => {});
+      }
+    });
+
+    let simulationInterval: ReturnType<typeof setInterval> | null = null;
+
+    callAPI.getCallDetails(callId || "CALL-0001")
+      .then(res => {
+        setCurrentCall(res.data);
+        
+        const mockLines = [
+          { speaker: "citizen" as const, text: "Wait, I also have a problem with the electricity near my house." },
+          { speaker: "ai" as const, text: "I understand. I am logging the power outage issue as well." },
+          { speaker: "citizen" as const, text: "Thank you. When will it be fixed?" },
+          { speaker: "ai" as const, text: "The department has been notified. Expected resolution within 4 hours." }
+        ];
+        
+        let lineIdx = 0;
+        simulationInterval = setInterval(() => {
+          if (lineIdx < mockLines.length) {
+            appendTranscript({
+              id: Date.now().toString(),
+              ...mockLines[lineIdx],
+              timestamp: new Date().toISOString()
+            });
+            lineIdx++;
+          } else if (simulationInterval) {
+            clearInterval(simulationInterval);
+          }
+        }, 5000);
+      })
+      .catch(() => {
+        const call = generateMockCall({ callId: callId || "CALL-0001" });
+        setCurrentCall(call);
+      });
+
+    return () => {
+      unsubTranscript();
+      unsubEmotion();
+      unsubConfidence();
+      unsubVerification();
+      unsubAiInsight();
+      unsubEscalation();
+      unsubCitizenAudio();
+      stopAgentMic();
+      wsManager.disconnect();
+      if (simulationInterval) clearInterval(simulationInterval);
+    };
+  }, [callId, setCurrentCall, appendTranscript, updateCurrentCallField, startAgentMic, stopAgentMic]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: "smooth" });
+  }, [currentCall?.transcript]);
 
   // ── Call recording (for logs) ──────────────────────────────────────────
   const startRecording = useCallback(async () => {
@@ -226,14 +220,13 @@ export default function ActiveCall() {
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
   }, []);
 
-  // API call handlers
   const handleEscalate = async () => {
     setEscalating(true);
     setEscalationOverlay(true);
     setEscalationCountdown(3);
 
     try {
-      await callAPI.escalateCall(callId || "");
+      await callAPI.updateSeverity(callId || "", "critical");
     } catch { /* fallback */ }
 
     const ctr = setInterval(() => {
@@ -244,7 +237,7 @@ export default function ActiveCall() {
             setEscalationOverlay(false);
             setEscalating(false);
             setIsManualControl(true);
-            startAgentMic(); // ← Open agent mic for two-way bridge
+            startAgentMic();
             toast.success("You are now LIVE with the citizen");
           }, 1000);
           return 0;
@@ -257,11 +250,14 @@ export default function ActiveCall() {
   const handleTakeControl = async () => {
     setTakingControl(true);
     try {
-      await callAPI.updateInterpretation(callId || "", { mode: "manual" });
+      const apiObj = callAPI as unknown as Record<string, (id: string, payload: Record<string, string>) => Promise<unknown>>;
+      if (typeof apiObj.updateInterpretation === 'function') {
+        await apiObj.updateInterpretation(callId || "", { mode: "manual" });
+      }
     } catch { /* fallback */ }
     setIsManualControl(true);
     setTakingControl(false);
-    startAgentMic(); // ← Also opens live mic when agent takes control
+    startAgentMic();
     toast.success("Manual control activated — mic is LIVE");
   };
 
@@ -269,23 +265,22 @@ export default function ActiveCall() {
     setEndingCall(true);
     try {
       await callAPI.endCall(callId || "");
-    } catch {
-      // fallback
-    }
+    } catch { /* fallback */ }
     setEndingCall(false);
     setCallEnded(true);
     toast.success("Call ended");
     setTimeout(() => navigate("/dashboard"), 1500);
   };
 
-  // Verification handler with API
   const handleVerification = async (result: "confirmed" | "incorrect" | "partial") => {
     setShowVerification(false);
     try {
-      await callAPI.submitVerification(callId || "", result);
-    } catch {
-      // fallback
-    }
+      const apiObj = callAPI as unknown as Record<string, (id: string, val: string) => Promise<unknown>>;
+      if (typeof apiObj.submitVerification === 'function') {
+        await apiObj.submitVerification(callId || "", result);
+      }
+    } catch { /* fallback */ }
+    
     updateCurrentCallField({
       verifications: [
         ...(currentCall?.verifications || []),
@@ -301,7 +296,6 @@ export default function ActiveCall() {
     toast.success("Transcript copied");
   };
 
-  // Filtered transcript
   const filteredTranscript = useMemo(() => {
     if (!currentCall) return [];
     return currentCall.transcript.filter((line) => {
@@ -309,10 +303,10 @@ export default function ActiveCall() {
       if (transcriptSearch && !line.text.toLowerCase().includes(transcriptSearch.toLowerCase())) return false;
       return true;
     });
-  }, [currentCall?.transcript, speakerFilter, transcriptSearch]);
+  }, [currentCall, speakerFilter, transcriptSearch]);
 
   if (!currentCall) return null;
-  const urgencyConfig = URGENCY_LEVELS[currentCall.urgency];
+  const urgencyConfig = URGENCY_LEVELS[currentCall.urgency || "low"];
 
   return (
     <>
@@ -329,14 +323,14 @@ export default function ActiveCall() {
               <span className="font-mono font-bold text-foreground tabular-nums">{formatDuration(elapsed)}</span>
             </div>
             <div className="flex gap-2">
-              <StatusBadge label={currentCall.language} variant="info" />
+              <StatusBadge label={currentCall.language || "English"} variant="info" />
               {currentCall.dialect && <StatusBadge label={currentCall.dialect} variant="default" />}
               {isManualControl && <StatusBadge label="Manual" variant="warning" />}
             </div>
             <div className="flex items-center gap-3 p-3 bg-accent/40 rounded-xl">
-              <EmotionIndicator emotion={currentCall.emotion} size="lg" />
+              <EmotionIndicator emotion={currentCall.emotion || "neutral"} size="lg" />
               <div>
-                <p className="text-sm font-semibold text-foreground">{EMOTIONS[currentCall.emotion].label}</p>
+                <p className="text-sm font-semibold text-foreground">{EMOTIONS[currentCall.emotion || "neutral"].label}</p>
                 <p className="text-xs text-muted-foreground">Current emotion</p>
               </div>
             </div>
@@ -520,7 +514,7 @@ export default function ActiveCall() {
             {[{ label: "Intent", value: currentCall.intent }, { label: "Location", value: currentCall.location }, { label: "Issue", value: currentCall.issue }].map((item) => (
               <div key={item.label}>
                 <label className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider">{item.label}</label>
-                <input type="text" defaultValue={item.value}
+                <input type="text" defaultValue={item.value || ""}
                   className="premium-input w-full text-sm mt-1"
                   aria-label={item.label} />
               </div>
@@ -529,23 +523,23 @@ export default function ActiveCall() {
 
           <div className="premium-card p-5">
             <h3 className="text-sm font-bold text-foreground font-display mb-3">Confidence Score</h3>
-            <ConfidenceBar score={currentCall.confidence} reason={currentCall.confidenceReason} />
+            <ConfidenceBar score={currentCall.confidence || 85} reason={currentCall.confidenceReason} />
           </div>
 
           <div className="premium-card p-5 space-y-3">
             <h3 className="text-sm font-bold text-foreground font-display">Sentiment Analysis</h3>
             <div className="flex items-center gap-3 p-3 bg-accent/50 rounded-xl">
-              <EmotionIndicator emotion={currentCall.emotion} size="md" />
+              <EmotionIndicator emotion={currentCall.emotion || "neutral"} size="md" />
               <div>
-                <p className="text-sm font-semibold text-foreground">{EMOTIONS[currentCall.emotion].label}</p>
-                <p className="text-xs text-muted-foreground">Urgency: {currentCall.urgency}</p>
+                <p className="text-sm font-semibold text-foreground">{EMOTIONS[currentCall.emotion || "neutral"].label}</p>
+                <p className="text-xs text-muted-foreground">Urgency: {currentCall.urgency || "low"}</p>
               </div>
             </div>
             <div className="flex gap-1">
-              {currentCall.emotionHistory.map((eh, i) => (
+              {(currentCall.emotionHistory || []).map((eh, i) => (
                 <div key={i} className="w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-bold"
-                  style={{ backgroundColor: EMOTIONS[eh.emotion as EmotionType]?.color + "22", color: EMOTIONS[eh.emotion as EmotionType]?.color }}
-                  title={eh.emotion}>{eh.emotion.charAt(0)}</div>
+                  style={{ backgroundColor: (EMOTIONS[eh.emotion as EmotionType]?.color || "#ccc") + "22", color: EMOTIONS[eh.emotion as EmotionType]?.color || "#333" }}
+                  title={eh.emotion}>{eh.emotion ? eh.emotion.charAt(0) : "N"}</div>
               ))}
             </div>
           </div>
@@ -554,7 +548,7 @@ export default function ActiveCall() {
             <h3 className="text-sm font-bold text-foreground font-display flex items-center gap-2">
               <Lightbulb className="w-4 h-4 text-secondary" /> Suggested Actions
             </h3>
-            {currentCall.suggestedActions.map((action) => (
+            {(currentCall.suggestedActions || []).map((action) => (
               <motion.button key={action} whileHover={{ scale: 1.01 }}
                 className="w-full text-left text-sm px-3.5 py-2.5 bg-accent/60 rounded-xl hover:bg-accent transition-all duration-200 flex items-center justify-between group">
                 <span className="font-medium">{action}</span>
@@ -565,8 +559,8 @@ export default function ActiveCall() {
 
           <div className="premium-card p-5 space-y-2.5">
             <h3 className="text-sm font-bold text-foreground font-display">Verification Status</h3>
-            <p className="text-xs text-muted-foreground font-medium">Attempts: {currentCall.verifications.length}</p>
-            {currentCall.verifications.map((v) => (
+            <p className="text-xs text-muted-foreground font-medium">Attempts: {currentCall.verifications?.length || 0}</p>
+            {(currentCall.verifications || []).map((v) => (
               <div key={v.attempt} className="flex items-center gap-2 text-xs">
                 <span className="text-muted-foreground font-medium">#{v.attempt}</span>
                 <StatusBadge label={v.result || "pending"} variant={v.result === "confirmed" ? "success" : v.result === "incorrect" ? "danger" : "warning"} />

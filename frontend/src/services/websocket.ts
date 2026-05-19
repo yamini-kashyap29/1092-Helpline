@@ -5,10 +5,14 @@ class WebSocketManager {
 
   connect(path: string): void {
     console.log(`[Mock WS] Connecting to ${path}...`);
-    // Simulate connection open
     setTimeout(() => {
       console.log(`[Mock WS] Connected to ${path}`);
     }, 1000);
+  }
+
+  // 🟢 ADD THIS METHOD TO FIX ERROR #1
+  send(payload: { type: string; data: unknown }): void {
+    console.log(`[Mock WS] Sending payload to server:`, payload);
   }
 
   subscribe(event: string, callback: EventCallback): () => void {
@@ -21,7 +25,6 @@ class WebSocketManager {
     };
   }
 
-  // Helper to simulate incoming events from the mock "server"
   simulateEvent(type: string, data: unknown): void {
     const callbacks = this.subscribers.get(type);
     if (callbacks) {
@@ -37,4 +40,3 @@ class WebSocketManager {
 
 export const wsManager = new WebSocketManager();
 export default WebSocketManager;
-
