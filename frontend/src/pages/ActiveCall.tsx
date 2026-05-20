@@ -330,7 +330,9 @@ export default function ActiveCall() {
             <div className="flex items-center gap-3 p-3 bg-accent/40 rounded-xl">
               <EmotionIndicator emotion={currentCall.emotion || "neutral"} size="lg" />
               <div>
-                <p className="text-sm font-semibold text-foreground">{EMOTIONS[currentCall.emotion || "neutral"].label}</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {(EMOTIONS[(currentCall.emotion || "NEUTRAL").toUpperCase() as EmotionType] || EMOTIONS.NEUTRAL).label}
+                </p>
                 <p className="text-xs text-muted-foreground">Current emotion</p>
               </div>
             </div>
@@ -531,16 +533,22 @@ export default function ActiveCall() {
             <div className="flex items-center gap-3 p-3 bg-accent/50 rounded-xl">
               <EmotionIndicator emotion={currentCall.emotion || "neutral"} size="md" />
               <div>
-                <p className="text-sm font-semibold text-foreground">{EMOTIONS[currentCall.emotion || "neutral"].label}</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {(EMOTIONS[(currentCall.emotion || "NEUTRAL").toUpperCase() as EmotionType] || EMOTIONS.NEUTRAL).label}
+                </p>
                 <p className="text-xs text-muted-foreground">Urgency: {currentCall.urgency || "low"}</p>
               </div>
             </div>
             <div className="flex gap-1">
-              {(currentCall.emotionHistory || []).map((eh, i) => (
-                <div key={i} className="w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-bold"
-                  style={{ backgroundColor: (EMOTIONS[eh.emotion as EmotionType]?.color || "#ccc") + "22", color: EMOTIONS[eh.emotion as EmotionType]?.color || "#333" }}
-                  title={eh.emotion}>{eh.emotion ? eh.emotion.charAt(0) : "N"}</div>
-              ))}
+              {(currentCall.emotionHistory || []).map((eh, i) => {
+                const emotionKey = (eh.emotion ? eh.emotion.toUpperCase() : "NEUTRAL") as EmotionType;
+                const emotionConfig = EMOTIONS[emotionKey] || EMOTIONS.NEUTRAL;
+                return (
+                  <div key={i} className="w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-bold"
+                    style={{ backgroundColor: (emotionConfig?.color || "#ccc") + "22", color: emotionConfig?.color || "#333" }}
+                    title={eh.emotion}>{eh.emotion ? eh.emotion.charAt(0) : "N"}</div>
+                );
+              })}
             </div>
           </div>
 

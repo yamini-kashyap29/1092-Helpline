@@ -14,10 +14,9 @@
  *  - Logs total records inserted per model.
  */
 
-const sequelize = require('../index');
+const { sequelize } = require('../index');
 
-// Register all models + associations
-require('../models/index');
+// Models are already initialized and associated in ../index.js
 
 const { seedMockData } = require('./seedMockData');
 
@@ -42,7 +41,7 @@ async function runSeed() {
 
     // ── Sync tables (safe — CREATE IF NOT EXISTS) ────────────────────────────
     console.log('📦 Syncing tables...');
-    await sequelize.sync({ force: false, alter: false });
+    await sequelize.sync({ force: true, alter: false });
     console.log('✅ Tables ready.');
 
     // ── Run seed ─────────────────────────────────────────────────────────────

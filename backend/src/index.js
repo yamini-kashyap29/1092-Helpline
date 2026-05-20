@@ -17,9 +17,16 @@ app.get('/', (req, res) => {
   res.json({ message: '1092 Helpline Node.js Backend is running' });
 });
 
+const http = require('http');
+const server = http.createServer(app);
+const socketManager = require('./socket');
+
+// Initialize Socket.io
+socketManager.init(server);
+
 connectDB({ sync: true })
   .then(() => {
-    app.listen(config.PORT, () => {
+    server.listen(config.PORT, () => {
       console.log(`Backend server running on port ${config.PORT}`);
     });
   })

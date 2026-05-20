@@ -144,4 +144,37 @@ class DebertaService:
             logger.error(f"Error in detect_severity: {e}")
             return self._fallback_severity(text)
 
+    def _fallback_emotion(self, text: str) -> str:
+        text_lower = text.lower()
+        if any(word in text_lower for word in ["help", "please", "save", "kill", "fire", "danger", "dying"]):
+            return "PANIC"
+        elif any(word in text_lower for word in ["scared", "fear", "afraid", "scare"]):
+            return "FEAR"
+        elif any(word in text_lower for word in ["angry", "shout", "mad", "worst", "hate"]):
+            return "ANGER"
+        elif any(word in text_lower for word in ["what", "why", "how", "where", "confused", "question"]):
+            return "CONFUSED"
+        elif any(word in text_lower for word in ["sad", "crying", "pain", "hurt", "unhappy"]):
+            return "SAD"
+        return "NEUTRAL"
+
+    async def detect_emotion(self, text: str) -> str:
+        """
+        Detect emotion using zero-shot classification
+        """
+        if not self.classifier:
+            return self._fallback_emotion(text)
+
+        try:
+            emotions = ["PANIC", "FEAR", "ANGER", "CONFUSED", "NEUTRAL", "SAD"]
+            result = await asyncio.to_thread(
+                self.classifier,
+                text,
+                candidate_labels=emotions
+            )
+            return result['labels'][0]
+        except Exception as e:
+            logger.error(f"Error in detect_emotion: {e}")
+            return self._fallback_emotion(text)
+
 deberta_service = DebertaService()

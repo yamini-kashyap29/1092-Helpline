@@ -183,7 +183,7 @@ export default function CallHistoryPage() {
               <div className="p-5 space-y-5">
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div><span className="premium-label">Language</span><p className="font-semibold mt-0.5">{selectedCall.language}</p></div>
-                  <div><span className="premium-label">Emotion</span><p className="font-semibold mt-0.5">{EMOTIONS[selectedCall.emotion]?.label || selectedCall.emotion}</p></div>
+                  <div><span className="premium-label">Emotion</span><p className="font-semibold mt-0.5">{EMOTIONS[(selectedCall.emotion || "NEUTRAL").toUpperCase() as keyof typeof EMOTIONS]?.label || selectedCall.emotion}</p></div>
                   <div><span className="premium-label">Status</span><p className="mt-0.5"><StatusBadge label={selectedCall.status} variant={statusVariant(selectedCall.status)} /></p></div>
                   <div><span className="premium-label">Intent</span><p className="font-semibold mt-0.5">{selectedCall.intent}</p></div>
                   <div><span className="premium-label">Location</span><p className="font-semibold mt-0.5">{selectedCall.location || "Unknown"}</p></div>

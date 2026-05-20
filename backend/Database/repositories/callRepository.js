@@ -27,6 +27,14 @@ const getCallById = async (id, { withRelations = false } = {}) => {
   return Call.findOne(options);
 };
 
+const getCallByTwilioSid = async (callSid) => {
+  return Call.findOne({
+    where: {
+      metadata: { twilioCallSid: callSid }
+    }
+  });
+};
+
 const getAllCalls = async ({
   page        = 1,
   limit       = 20,
@@ -139,6 +147,7 @@ const getCallStats = async () => {
 module.exports = {
   createCall,
   getCallById,
+  getCallByTwilioSid,
   getAllCalls,
   getCallsByCallerNumber,
   getActiveCalls,

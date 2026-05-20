@@ -1,7 +1,7 @@
 'use strict';
 
 // ✅ Fixed: Explicitly pointing to the index.js file inside the parent Database directory
-const sequelize = require('../index.js');
+const { sequelize } = require('../index.js');
 
 // Initialize models properly
 const Call = require('./Call')(sequelize);

@@ -18,6 +18,9 @@ class PipelineResponse(BaseModel):
     severity: str
     reply: str
     summary: str
+    intent: str
+    confidence: float
+    emotion: str
 
 class TextInputRequest(BaseModel):
     text: str
@@ -30,23 +33,32 @@ async def analyze_pipeline(request: PipelineRequest):
     1. DeBERTa model for Severity Classification
     2. Gemini API for generating a context-aware safe reply
     3. Groq API for generating a 1-2 line case summary
+    4. DeBERTa dynamic classification for intent & confidence
+    5. DeBERTa zero-shot emotion classifier
     """
     try:
-        # Run all three AI tasks concurrently to drastically minimize total latency
+        # Run all AI tasks concurrently to drastically minimize total latency
         severity_task = asyncio.create_task(deberta_service.detect_severity(request.text))
         reply_task = asyncio.create_task(gemini_service.generate_reply(request.text))
         summary_task = asyncio.create_task(groq_service.generate_summary(request.text))
+        intent_task = asyncio.create_task(deberta_service.analyze_text(request.text))
+        emotion_task = asyncio.create_task(deberta_service.detect_emotion(request.text))
 
-        severity, reply, summary = await asyncio.gather(
+        severity, reply, summary, intent_result, emotion = await asyncio.gather(
             severity_task,
             reply_task,
-            summary_task
+            summary_task,
+            intent_task,
+            emotion_task
         )
 
         return PipelineResponse(
             severity=severity,
             reply=reply,
-            summary=summary
+            summary=summary,
+            intent=intent_result.get("intent", "General Enquiry"),
+            confidence=float(intent_result.get("confidence", 0.85)),
+            emotion=emotion
         )
 
     except Exception as e:

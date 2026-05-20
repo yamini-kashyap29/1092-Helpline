@@ -378,9 +378,8 @@ const seedNotifications = async (alerts, officers) => {
 
 // ─── Main Runner ───────────────────────────────────────────────────────────────
 
-const runSeed = async () => {
+const seedMockData = async () => {
   try {
-    await connectDB({ sync: true, alter: true });
     console.log('[Seed] Starting mock data seeding...\n');
 
     const officers     = await seedOfficers();
@@ -392,12 +391,19 @@ const runSeed = async () => {
     await seedNotifications(alerts, officers);
 
     console.log('\n[Seed] ✅ All mock data seeded successfully.');
+    return {
+      Officers: officers.length,
+      Calls: calls.length,
+      Transcripts: transcripts.length,
+      AIResults: aiResults.length,
+      Alerts: alerts.length
+    };
   } catch (error) {
     console.error('[Seed] ❌ Seeding failed:', error);
-    process.exit(1);
-  } finally {
-    await sequelize.close();
+    throw error;
   }
 };
 
-runSeed();
+module.exports = {
+  seedMockData
+};

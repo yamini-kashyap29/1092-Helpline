@@ -12,13 +12,18 @@ const emotionIcons: Record<EmotionType, React.ElementType> = {
 };
 
 interface EmotionIndicatorProps {
-  emotion: EmotionType;
+  emotion: string | EmotionType;
   size?: "sm" | "md" | "lg";
 }
 
 export default function EmotionIndicator({ emotion, size = "md" }: EmotionIndicatorProps) {
-  const config = EMOTIONS[emotion];
-  const Icon = emotionIcons[emotion];
+  // Normalize the input emotion (handle undefined, null, lowercase, etc.)
+  const normalizedEmotion = (typeof emotion === "string" ? emotion.toUpperCase() : "NEUTRAL") as EmotionType;
+  
+  // Safe lookup with fallbacks
+  const config = EMOTIONS[normalizedEmotion] || EMOTIONS.NEUTRAL;
+  const Icon = emotionIcons[normalizedEmotion] || emotionIcons.NEUTRAL;
+
   const sizeClasses = {
     sm: "w-7 h-7 text-xs",
     md: "w-10 h-10 text-sm",
