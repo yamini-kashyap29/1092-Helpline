@@ -380,6 +380,17 @@ const seedNotifications = async (alerts, officers) => {
 
 const seedMockData = async () => {
   try {
+    console.log('[Seed] Cleaning up existing mock data in reverse dependency order...');
+    // Safely purge all tables before seeding to guarantee ID matching
+    await Notification.destroy({ where: {} });
+    await Transfer.destroy({ where: {} });
+    await Alert.destroy({ where: {} });
+    await AIResult.destroy({ where: {} });
+    await Transcript.destroy({ where: {} });
+    await Call.destroy({ where: {} });
+    await Officer.destroy({ where: {} });
+    console.log('[Seed] Cleanup complete.');
+
     console.log('[Seed] Starting mock data seeding...\n');
 
     const officers     = await seedOfficers();

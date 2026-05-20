@@ -39,10 +39,10 @@ async function runSeed() {
     await sequelize.authenticate();
     console.log(`✅ Connected. Environment: ${ENV}`);
 
-    // ── Sync tables (safe — CREATE IF NOT EXISTS) ────────────────────────────
-    console.log('📦 Syncing tables...');
-    await sequelize.sync({ force: true, alter: false });
-    console.log('✅ Tables ready.');
+    // ── Sync tables bypassed (safe when server is running) ───────────────────
+    // console.log('📦 Syncing tables...');
+    // await sequelize.sync({ force: false, alter: false });
+    // console.log('✅ Tables ready.');
 
     // ── Run seed ─────────────────────────────────────────────────────────────
     console.log('\n🌱 Starting seed...\n');
