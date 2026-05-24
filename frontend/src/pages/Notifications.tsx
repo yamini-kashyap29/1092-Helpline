@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bell, AlertTriangle, Phone, CheckCircle2, Info,
@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { PremiumButton } from "@/components/common/PremiumButton";
 import { formatDateTime } from "@/utils/formatters";
+import { wsManager } from "@/services/websocket";
 
 interface Notification {
   id: string;
@@ -30,19 +31,48 @@ const colorMap = {
   success: { bg: "bg-success/8", icon: "text-success", dot: "bg-success" },
 };
 
-const mockNotifications: Notification[] = [
-  { id: "1", type: "escalation", title: "Call Escalated", message: "CALL-4821 was escalated due to high emotional distress detected in the citizen's voice.", timestamp: new Date(Date.now() - 120000).toISOString(), read: false },
-  { id: "2", type: "call", title: "New Incoming Call", message: "New call from Rajajinagar, Bengaluru. Language: Kannada. AI is handling.", timestamp: new Date(Date.now() - 300000).toISOString(), read: false },
-  { id: "3", type: "success", title: "Call Resolved", message: "CALL-3199 was successfully resolved by AI. Complaint logged in PGRS.", timestamp: new Date(Date.now() - 600000).toISOString(), read: false },
-  { id: "4", type: "system", title: "Shift Reminder", message: "Your shift ends in 30 minutes. Please wrap up active calls.", timestamp: new Date(Date.now() - 1800000).toISOString(), read: true },
-  { id: "5", type: "escalation", title: "Whisper Word Detected", message: "CALL-5012 triggered whisper word alert. Immediate human attention required.", timestamp: new Date(Date.now() - 2400000).toISOString(), read: true },
-  { id: "6", type: "call", title: "Missed Call", message: "A call from Mysuru was missed. No agents were available.", timestamp: new Date(Date.now() - 3600000).toISOString(), read: true },
-  { id: "7", type: "system", title: "System Update", message: "AI model v2.4 deployed. Improved Kannada dialect recognition by 12%.", timestamp: new Date(Date.now() - 7200000).toISOString(), read: true },
-  { id: "8", type: "success", title: "Weekly Report Ready", message: "Your weekly performance report is available in the Analytics section.", timestamp: new Date(Date.now() - 14400000).toISOString(), read: true },
-];
+// We'll load notifications from the backend API
 
 export default function Notifications() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    setIsLoading(true);
+    setError(null);
+    import("@/services/api").then(({ notificationAPI }) =>
+      notificationAPI.list()
+        .then((res) => setNotifications(res.data))
+        .catch((err) => setError(err.message || 'Failed to load notifications'))
+        .finally(() => setIsLoading(false))
+    );
+    // Subscribe to live notification pushes
+    const unsubNotif = wsManager.subscribe('notification', (data) => {
+      try {
+        const n = data as any;
+        setNotifications((prev) => [{
+          id: n.id,
+          type: n.type || 'system',
+          title: n.title,
+          message: n.message,
+          timestamp: n.timestamp || new Date().toISOString(),
+          read: false
+        }, ...prev]);
+      } catch (e) {
+        console.error('Malformed notification payload', e, data);
+      }
+    });
+
+    const unsubNewCall = wsManager.subscribe('new_call', (data) => {
+      // When a new call appears, refresh the list from server
+      import("@/services/api").then(({ notificationAPI }) => notificationAPI.list().then(res => setNotifications(res.data)).catch(() => { }));
+    });
+
+    return () => {
+      unsubNotif();
+      unsubNewCall();
+    };
+  }, []);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
@@ -55,17 +85,33 @@ export default function Notifications() {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAllRead = () =>
+    // Optimistic update + backend call
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  import("@/services/api").then(({ notificationAPI }) => {
+    // No server endpoint for mark-all implemented yet; mark individually
+    notifications.slice(0, 100).forEach((n) => {
+      if (!n.read) notificationAPI.markRead(n.id).catch(() => { });
+    });
+  });
 
   const markRead = (id: string) =>
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  import("@/services/api").then(({ notificationAPI }) => notificationAPI.markRead(id).catch(() => { }));
 
   const deleteNotification = (id: string) =>
+    // Optimistic removal + backend
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+  import("@/services/api").then(({ notificationAPI }) => notificationAPI.delete(id).catch(() => { }));
 
   const clearAll = () => setNotifications([]);
+
+  if (isLoading) return (
+    <motion.div className="p-6"><div className="text-sm text-muted-foreground">Loading notifications...</div></motion.div>
+  );
+
+  if (error) return (
+    <motion.div className="p-6 text-destructive">Error loading notifications: {error}</motion.div>
+  );
 
   return (
     <motion.div
@@ -103,11 +149,10 @@ export default function Notifications() {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
-                filter === f
-                  ? "bg-primary text-primary-foreground shadow-premium-sm"
-                  : "text-muted-foreground hover:bg-accent"
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${filter === f
+                ? "bg-primary text-primary-foreground shadow-premium-sm"
+                : "text-muted-foreground hover:bg-accent"
+                }`}
             >
               {f}
             </button>
@@ -119,11 +164,10 @@ export default function Notifications() {
             <button
               key={t}
               onClick={() => setTypeFilter(t)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
-                typeFilter === t
-                  ? "bg-primary text-primary-foreground shadow-premium-sm"
-                  : "text-muted-foreground hover:bg-accent"
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${typeFilter === t
+                ? "bg-primary text-primary-foreground shadow-premium-sm"
+                : "text-muted-foreground hover:bg-accent"
+                }`}
             >
               {t === "all" ? "All Types" : t}
             </button>
@@ -145,9 +189,8 @@ export default function Notifications() {
                 exit={{ opacity: 0, x: 20, height: 0 }}
                 transition={{ delay: i * 0.03 }}
                 onClick={() => markRead(n.id)}
-                className={`premium-card p-4 flex items-start gap-4 cursor-pointer hover:shadow-premium transition-all duration-200 ${
-                  !n.read ? "border-l-[3px] border-l-primary" : ""
-                }`}
+                className={`premium-card p-4 flex items-start gap-4 cursor-pointer hover:shadow-premium transition-all duration-200 ${!n.read ? "border-l-[3px] border-l-primary" : ""
+                  }`}
               >
                 <div
                   className={`w-10 h-10 rounded-xl ${colors.bg} flex items-center justify-center flex-shrink-0`}

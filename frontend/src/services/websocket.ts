@@ -11,12 +11,19 @@ class WebSocketManager {
       this.socket.disconnect();
     }
     
-    // Connect to the backend socket.io server
-    const API_BASE_URL = "http://localhost:8000";
+    // Connect to the backend socket.io server (Node backend default port)
+    const API_BASE_URL = "http://localhost:5000";
     this.socket = io(API_BASE_URL, {
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 30000,
+      randomizationFactor: 0.5,
+      transports: ["websocket", "polling"],
     });
+
+    let retryCount = 0;
+    const maxRetryLog = 6;
 
     this.socket.on("connect", () => {
       console.log(`[WS] Connected with ID: ${this.socket?.id}`);
@@ -32,6 +39,19 @@ class WebSocketManager {
 
     this.socket.on("disconnect", () => {
       console.log("[WS] Disconnected");
+    });
+
+    this.socket.on('reconnect_attempt', (attempt) => {
+      retryCount = attempt;
+      if (attempt <= maxRetryLog) console.log(`[WS] Reconnect attempt #${attempt}`);
+    });
+
+    this.socket.on('reconnect_failed', () => {
+      console.error('[WS] Reconnect failed after multiple attempts');
+    });
+
+    this.socket.on('connect_error', (err) => {
+      console.warn('[WS] Connect error:', err.message || err);
     });
 
     // Handle incoming generic events and dispatch to local subscribers

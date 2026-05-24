@@ -7,7 +7,6 @@ import { useUIStore } from "@/store/uiStore";
 
 const links = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/dashboard", icon: Headphones, label: "Active Calls" },
   { to: "/history", icon: History, label: "Call History" },
   { to: "/analytics", icon: BarChart3, label: "Analytics" },
   { to: "/notifications", icon: Bell, label: "Notifications" },
@@ -20,9 +19,8 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`${
-        sidebarCollapsed ? "w-[72px]" : "w-60"
-      } bg-sidebar flex flex-col transition-all duration-300 relative`}
+      className={`${sidebarCollapsed ? "w-[72px]" : "w-60"
+        } bg-sidebar flex flex-col transition-all duration-300 relative`}
       style={{
         background: "linear-gradient(180deg, hsl(217 56% 20%) 0%, hsl(217 56% 15%) 100%)",
       }}
@@ -46,11 +44,10 @@ export default function Sidebar() {
             <NavLink
               key={link.label}
               to={link.to}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm group ${
-                isActive
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm group ${isActive
                   ? "bg-white/12 text-white shadow-sm backdrop-blur-sm"
                   : "text-white/55 hover:bg-white/8 hover:text-white/90"
-              }`}
+                }`}
               aria-label={link.label}
             >
               <link.icon className={`w-[18px] h-[18px] flex-shrink-0 transition-transform duration-200 ${isActive ? "" : "group-hover:scale-110"}`} />

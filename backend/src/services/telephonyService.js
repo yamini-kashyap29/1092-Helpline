@@ -1,15 +1,15 @@
-const axios = require('axios');
-const config = require('../config');
-const socketManager = require('../socket');
-const callRepository = require('../../Database/repositories/callRepository');
-const transcriptRepository = require('../../Database/repositories/transcriptRepository');
+const axios = require("axios");
+const config = require("../config");
+const socketManager = require("../socket");
+const callRepository = require("../../Database/repositories/callRepository");
+const transcriptRepository = require("../../Database/repositories/transcriptRepository");
 
 const AI_SERVICE_URL = config.AI_SERVICE_URL;
-const AGENT_PHONE_NUMBER = process.env.AGENT_PHONE_NUMBER || '+916363868580';
+const AGENT_PHONE_NUMBER = process.env.AGENT_PHONE_NUMBER || "+916363868580";
 
 const handleIncomingCall = async (callData) => {
-  const callSid = callData.CallSid || 'UNKNOWN';
-  const callerNumber = callData.From || 'UNKNOWN';
+  const callSid = callData.CallSid || "UNKNOWN";
+  const callerNumber = callData.From || "UNKNOWN";
 
   console.log(`📞 Incoming call received`);
   console.log(`Call SID: ${callSid}`);
@@ -19,16 +19,51 @@ const handleIncomingCall = async (callData) => {
   try {
     const newCall = await callRepository.createCall({
       caller_number: callerNumber,
-      status: 'active',
-      metadata: { twilioCallSid: callSid }
+      status: "active",
+      metadata: { twilioCallSid: callSid },
     });
-    
+
     // Broadcast to agents
     const io = socketManager.getIO();
-    io.emit('new_call', { callId: newCall.id, caller: callerNumber });
+    io.emit("new_call", { callId: newCall.id, caller: callerNumber });
+    // Create an in-app notification for UI
+    try {
+      const { Notification, Alert } = require("../../Database");
+      const alert = await Alert.create({
+        call_id: newCall.id,
+        alert_type: "other",
+        severity_level: "medium",
+        title: "Incoming call",
+        description: `Incoming call from ${callerNumber}`,
+        triggered_by: "system",
+      });
+
+      const notif = await Notification.create({
+        alert_id: alert.id,
+        officer_id: null,
+        channel: "in_app",
+        recipient_address: "broadcast",
+        subject: "New incoming call",
+        body: `Incoming call from ${callerNumber}`,
+        status: "queued",
+        sent_at: new Date(),
+      });
+
+      // Emit notification event for frontend
+      io.emit("notification", {
+        id: notif.id,
+        type: "call",
+        title: notif.subject,
+        message: notif.body,
+        timestamp: notif.sent_at,
+        read: false,
+      });
+    } catch (err) {
+      console.error("Failed to create notification:", err);
+    }
     console.log(`💾 Call created in DB with ID: ${newCall.id}`);
   } catch (err) {
-    console.error('Error creating call in DB:', err);
+    console.error("Error creating call in DB:", err);
   }
 
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -49,16 +84,18 @@ const handleIncomingCall = async (callData) => {
 };
 
 const updateCallStatus = async (statusData) => {
-  const transcriptionText = statusData.TranscriptionText || '';
-  const recordingUrl = statusData.RecordingUrl || '';
-  const callSid = statusData.CallSid || 'UNKNOWN';
+  const transcriptionText = statusData.TranscriptionText || "";
+  const recordingUrl = statusData.RecordingUrl || "";
+  const callSid = statusData.CallSid || "UNKNOWN";
 
   console.log(`📋 Call status update for: ${callSid}`);
   console.log(`Transcription: ${transcriptionText}`);
   console.log(`Recording URL: ${recordingUrl}`);
 
   if (!transcriptionText) {
-    console.log(`⚠️ No transcription received yet for ${callSid} — waiting for Twilio callback`);
+    console.log(
+      `⚠️ No transcription received yet for ${callSid} — waiting for Twilio callback`,
+    );
     return;
   }
 
@@ -66,18 +103,20 @@ const updateCallStatus = async (statusData) => {
   try {
     dbCall = await callRepository.getCallByTwilioSid(callSid);
   } catch (err) {
-    console.error('Error fetching call from DB:', err);
+    console.error("Error fetching call from DB:", err);
   }
 
   try {
     // Step 1 — Send transcription through input-service (language detect + translate)
-    console.log(`🌐 Sending to input-service for language detection + translation...`);
+    console.log(
+      `🌐 Sending to input-service for language detection + translation...`,
+    );
     const inputResponse = await axios.post(
       `http://localhost:8001/api/v1/pipeline/input`,
       {
         text: transcriptionText,
-        originalText: transcriptionText
-      }
+        originalText: transcriptionText,
+      },
     );
 
     const translatedText = inputResponse.data.text;
@@ -88,74 +127,112 @@ const updateCallStatus = async (statusData) => {
     if (dbCall) {
       await transcriptRepository.createTranscript({
         call_id: dbCall.id,
-        speaker: 'citizen',
+        speaker: "citizen",
         content: transcriptionText,
         translated_content: translatedText,
-        language: detectedLanguage
+        language: detectedLanguage,
       });
       const io = socketManager.getIO();
-      io.to(`call_${dbCall.id}`).emit('transcript_update', {
+      io.to(`call_${dbCall.id}`).emit("transcript_update", {
         id: Date.now().toString(),
-        speaker: 'citizen',
+        speaker: "citizen",
         text: transcriptionText,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
 
     // Step 2 — Send translated English text to AI unified pipeline check
-    console.log(`🤖 Sending to AI service for full unified pipeline analysis...`);
+    console.log(
+      `🤖 Sending to AI service for full unified pipeline analysis...`,
+    );
     const pipelineResponse = await axios.post(
       `${AI_SERVICE_URL}/pipeline/analyze`,
-      { text: translatedText }
+      { text: translatedText },
     );
 
-    const { severity, reply, summary, intent, confidence, emotion } = pipelineResponse.data;
-    console.log(`🚨 Analysis results -> Severity: ${severity}, Intent: ${intent}, Emotion: ${emotion}`);
+    const { severity, reply, summary, intent, confidence, emotion } =
+      pipelineResponse.data;
+    console.log(
+      `🚨 Analysis results -> Severity: ${severity}, Intent: ${intent}, Emotion: ${emotion}`,
+    );
 
     if (dbCall) {
-       // Save to Call metadata JSONB column!
-       const updatedMetadata = {
-         ...(dbCall.metadata || {}),
-         emotion: emotion ? emotion.toLowerCase() : 'neutral',
-         intent: intent || 'General Query',
-         confidence: confidence || 85,
-         issue_summary: summary || 'No summary provided',
-         ai_reply: reply || ''
-       };
+      // Save to Call metadata JSONB column!
+      const updatedMetadata = {
+        ...(dbCall.metadata || {}),
+        emotion: emotion ? emotion.toLowerCase() : "neutral",
+        intent: intent || "General Query",
+        confidence: confidence || 85,
+        issue_summary: summary || "No summary provided",
+        ai_reply: reply || "",
+      };
 
-       await callRepository.updateCall(dbCall.id, {
-         severity_level: severity ? severity.toLowerCase() : 'low',
-         metadata: updatedMetadata
-       });
-       
-       // Broadcast updates immediately to all users on the dashboard!
-       const io = socketManager.getIO();
-       io.emit('new_call', { callId: dbCall.id }); // This will refresh active calls list across all dashboards
-       
-       // Emit detailed update to this active call's workspace
-       io.to(`call_${dbCall.id}`).emit('ai_insight_update', {
-         emotion: emotion ? emotion.toLowerCase() : 'neutral',
-         intent: intent || 'General Query',
-         confidence: confidence || 85,
-         issue: summary || 'No summary provided',
-         suggestedActions: reply ? [reply] : []
-       });
+      await callRepository.updateCall(dbCall.id, {
+        severity_level: severity ? severity.toLowerCase() : "low",
+        metadata: updatedMetadata,
+      });
 
-       if (severity === 'HIGH' || severity === 'CRITICAL') {
-         io.to(`call_${dbCall.id}`).emit('escalation_required', { severity });
-       }
+      // Broadcast updates immediately to all users on the dashboard!
+      const io = socketManager.getIO();
+      io.emit("new_call", { callId: dbCall.id }); // This will refresh active calls list across all dashboards
+
+      // Emit detailed update to this active call's workspace
+      io.to(`call_${dbCall.id}`).emit("ai_insight_update", {
+        emotion: emotion ? emotion.toLowerCase() : "neutral",
+        intent: intent || "General Query",
+        confidence: confidence || 85,
+        issue: summary || "No summary provided",
+        suggestedActions: reply ? [reply] : [],
+      });
+
+      if (severity === "HIGH" || severity === "CRITICAL") {
+        io.to(`call_${dbCall.id}`).emit("escalation_required", { severity });
+        // Create an alert + notification for escalation
+        try {
+          const { Alert, Notification } = require("../../Database");
+          const escAlert = await Alert.create({
+            call_id: dbCall.id,
+            alert_type: "other",
+            severity_level: severity === "HIGH" ? "high" : "critical",
+            title: "Escalation required",
+            description: `Call ${dbCall.id} requires escalation (severity=${severity})`,
+            triggered_by: "ai",
+          });
+
+          const escNotif = await Notification.create({
+            alert_id: escAlert.id,
+            officer_id: null,
+            channel: "in_app",
+            recipient_address: "broadcast",
+            subject: "Call Escalated",
+            body: `Call ${dbCall.id} escalated (severity=${severity})`,
+            status: "queued",
+            sent_at: new Date(),
+          });
+
+          io.emit("notification", {
+            id: escNotif.id,
+            type: "escalation",
+            title: escNotif.subject,
+            message: escNotif.body,
+            timestamp: escNotif.sent_at,
+            read: false,
+          });
+        } catch (err) {
+          console.error("Failed to create escalation notification:", err);
+        }
+      }
     }
 
     // Step 3 — Escalate if HIGH or CRITICAL
-    if (severity === 'HIGH' || severity === 'CRITICAL') {
+    if (severity === "HIGH" || severity === "CRITICAL") {
       console.log(`🔴 ESCALATING to human agent!`);
       await forwardToAgent(callSid, severity);
     } else {
       console.log(`🟢 Severity is ${severity} — AI continues handling`);
     }
-
   } catch (error) {
-    if (error.config && error.config.url && error.config.url.includes('8001')) {
+    if (error.config && error.config.url && error.config.url.includes("8001")) {
       console.error(`❌ Input-service error (port 8001): ${error.message}`);
     } else {
       console.error(`❌ AI service error: ${error.message}`);
@@ -172,8 +249,8 @@ const forwardToAgent = async (callSid, severity) => {
     callSid,
     severity,
     forwardedTo: AGENT_PHONE_NUMBER,
-    status: 'FORWARDED',
-    timestamp: new Date().toISOString()
+    status: "FORWARDED",
+    timestamp: new Date().toISOString(),
   };
 };
 

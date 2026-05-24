@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { mockAnalyticsData } from "@/utils/mockData";
+import { analyticsAPI } from "@/services/api";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, BarChart, Bar, Legend
@@ -27,7 +27,22 @@ const quickStats = [
 const tickStyle = { fontSize: 10, fill: "hsl(220,9%,46%)", fontFamily: "'DM Sans', system-ui, sans-serif" };
 
 export default function Analytics() {
-  const [data] = useState(mockAnalyticsData);
+  const [data, setData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setIsLoading(true);
+    analyticsAPI.getAnalytics()
+      .then((res) => setData(res.data))
+      .catch(() => setData(null))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  if (isLoading) return (
+    <motion.div className="p-6">
+      <div className="text-sm text-muted-foreground">Loading analytics...</div>
+    </motion.div>
+  );
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className="p-6 space-y-6">
@@ -55,7 +70,7 @@ export default function Analytics() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="premium-card p-5">
           <h3 className="text-sm font-bold text-foreground font-display mb-5">Calls Over Time</h3>
           <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={data.callsOverTime}>
+            <LineChart data={data?.callsOverTime || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,13%,91%)" vertical={false} />
               <XAxis dataKey="hour" tick={tickStyle} axisLine={false} tickLine={false} />
               <YAxis tick={tickStyle} axisLine={false} tickLine={false} />
@@ -71,8 +86,8 @@ export default function Analytics() {
           <h3 className="text-sm font-bold text-foreground font-display mb-5">Emotion Distribution</h3>
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
-              <Pie data={data.emotionDistribution} cx="50%" cy="50%" innerRadius={55} outerRadius={95} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} strokeWidth={2} stroke="hsl(0,0%,100%)">
-                {data.emotionDistribution.map((_, i) => (
+              <Pie data={data?.emotionDistribution || []} cx="50%" cy="50%" innerRadius={55} outerRadius={95} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} strokeWidth={2} stroke="hsl(0,0%,100%)">
+                {(data?.emotionDistribution || []).map((_, i) => (
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />
                 ))}
               </Pie>
@@ -84,7 +99,7 @@ export default function Analytics() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="premium-card p-5">
           <h3 className="text-sm font-bold text-foreground font-display mb-5">Language Distribution</h3>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={data.languageDistribution}>
+            <BarChart data={data?.languageDistribution || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,13%,91%)" vertical={false} />
               <XAxis dataKey="language" tick={{ ...tickStyle, fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={tickStyle} axisLine={false} tickLine={false} />
@@ -97,7 +112,7 @@ export default function Analytics() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="premium-card p-5">
           <h3 className="text-sm font-bold text-foreground font-display mb-5">Escalation Reasons</h3>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={data.escalationReasons} layout="vertical">
+            <BarChart data={data?.escalationReasons || []} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(220,13%,91%)" horizontal={false} />
               <XAxis type="number" tick={tickStyle} axisLine={false} tickLine={false} />
               <YAxis dataKey="reason" type="category" tick={tickStyle} width={150} axisLine={false} tickLine={false} />

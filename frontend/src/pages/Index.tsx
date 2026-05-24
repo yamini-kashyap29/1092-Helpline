@@ -34,25 +34,25 @@ const Index = () => {
               <Activity size={14} />
               AI-Powered Emergency Response
             </div>
-             <h1 className="text-6xl lg:text-7xl font-extrabold leading-[1.1] mb-8 text-slate-900 tracking-tight">
+            <h1 className="text-6xl lg:text-7xl font-extrabold leading-[1.1] mb-8 text-slate-900 tracking-tight">
               Safety is just <br />
               <span className="text-primary">one call away.</span>
             </h1>
             <p className="text-xl text-slate-600 mb-10 max-w-lg leading-relaxed">
-              Connect instantly with our intelligent responder. 
+              Connect instantly with our intelligent responder.
               Real-time translation, emergency detection, and automated dispatch.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4">
-              <a
-                href="tel:1092"
-                className="group relative h-16 px-10 rounded-2xl bg-primary text-white font-bold text-lg flex items-center justify-center gap-3 overflow-hidden shadow-2xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-primary to-indigo-900 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Phone size={24} className="relative z-10" />
-                <span className="relative z-10">DIAL HELPLINE (1092)</span>
-              </a>
+            {/* Mobile hero image (shows on small screens) */}
+            <div className="mb-6 lg:hidden">
+              <img
+                src="https://images.unsplash.com/photo-1526256262350-7da7584cf5eb?auto=format&fit=crop&q=80&w=1000"
+                alt="Emergency response illustration"
+                className="w-full rounded-2xl object-cover h-48"
+              />
+            </div>
 
+            <div className="flex flex-col sm:flex-row gap-4">
               <Link
                 to="/login"
                 className="h-16 px-8 rounded-2xl border-2 border-slate-200 text-slate-700 font-bold text-lg flex items-center justify-center gap-3 hover:bg-slate-50 hover:border-slate-300 transition-all"
@@ -81,20 +81,20 @@ const Index = () => {
           >
             <div className="absolute inset-0 bg-primary/20 blur-[120px] opacity-20 rounded-full" />
             <div className="relative w-full max-w-lg bg-slate-50 border border-slate-100 rounded-[3rem] p-4 shadow-inner overflow-hidden transform translate-x-12">
-               <div className="aspect-[4/5] overflow-hidden rounded-[2.5rem]">
-                 <img 
-                   src="https://images.unsplash.com/photo-1576091160550-2173dad99978?auto=format&fit=crop&q=80&w=1000" 
-                   alt="Emergency Services"
-                   className="w-full h-full object-cover grayscale-[0.2] hover:scale-105 transition-transform duration-700"
-                 />
-               </div>
-               <div className="absolute bottom-10 left-10 right-10 bg-white/95 backdrop-blur-md p-6 rounded-2xl border border-white/50 shadow-2xl">
-                  <div className="flex items-center gap-4 mb-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-success animate-pulse" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Active AI Node 01</span>
-                  </div>
-                  <p className="text-slate-900 font-bold leading-snug">Emergency services integrated with real-time analysis.</p>
-               </div>
+              <div className="aspect-[4/5] overflow-hidden rounded-[2.5rem]">
+                <img
+                  src="https://images.unsplash.com/photo-1576091160550-2173dad99978?auto=format&fit=crop&q=80&w=1000"
+                  alt="Emergency Services"
+                  className="w-full h-full object-cover grayscale-[0.2] hover:scale-105 transition-transform duration-700"
+                />
+              </div>
+              <div className="absolute bottom-10 left-10 right-10 bg-white/95 backdrop-blur-md p-6 rounded-2xl border border-white/50 shadow-2xl">
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-success animate-pulse" />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Active AI Node 01</span>
+                </div>
+                <p className="text-slate-900 font-bold leading-snug">Emergency services integrated with real-time analysis.</p>
+              </div>
             </div>
           </motion.div>
         </div>
@@ -103,17 +103,17 @@ const Index = () => {
       {/* Stats Section */}
       <section className="py-20 border-t border-slate-100">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12">
-           {[
-             { label: "Response Time", value: "< 2s" },
-             { label: "Success Rate", value: "99.8%" },
-             { label: "AI Accuracy", value: "96.4%" },
-             { label: "Active Nodes", value: "420+" },
-           ].map((stat, i) => (
-             <div key={i}>
-                <div className="text-3xl font-extrabold text-slate-900 mb-1">{stat.value}</div>
-                <div className="text-sm font-medium text-slate-400">{stat.label}</div>
-             </div>
-           ))}
+          {[
+            { label: "Response Time", value: "< 2s" },
+            { label: "Success Rate", value: "99.8%" },
+            { label: "AI Accuracy", value: "96.4%" },
+            { label: "Active Nodes", value: "420+" },
+          ].map((stat, i) => (
+            <div key={i}>
+              <div className="text-3xl font-extrabold text-slate-900 mb-1">{stat.value}</div>
+              <div className="text-sm font-medium text-slate-400">{stat.label}</div>
+            </div>
+          ))}
         </div>
       </section>
     </div>

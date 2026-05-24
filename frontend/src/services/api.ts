@@ -1,7 +1,8 @@
 import axios from "axios";
 
 // Points to your main base engine URL configuration matching port parameters
-const API_BASE_URL = "http://localhost:8000/api/v1"; 
+// Use the Node backend default port (5000) where the Express API is mounted
+const API_BASE_URL = "http://localhost:5000/api/v1"; 
 
 const client = axios.create({
   baseURL: API_BASE_URL,
@@ -13,6 +14,14 @@ export const dashboardAPI = {
   getActiveCalls: () => client.get("/calls?status=ongoing"),
   getRecentCalls: (limit?: number) => client.get(`/calls?status=resolved`),
   endCall: (id: string) => client.post(`/calls/${id}/end`),
+};
+export const analyticsAPI = {
+  getAnalytics: () => client.get('/analytics'),
+};
+export const notificationAPI = {
+  list: () => client.get('/notifications'),
+  markRead: (id: string) => client.patch(`/notifications/${id}/read`),
+  delete: (id: string) => client.delete(`/notifications/${id}`),
 };
 export const callAPI = {
   getCallDetails: (id: string) => client.get(`/calls/${id}`),
